@@ -1,124 +1,113 @@
-# 📱 Sistema de Apoio à Comunicação Alternativa e Aumentativa (CAA) para TEA
+# 📱 Sistema CAA TEA - Apoio à Comunicação Alternativa e Aumentativa
 
-Sistema desenvolvido como base prática para Trabalho de Conclusão de Curso (TCC), voltado a fornecer ferramentas de Comunicação Alternativa e Aumentativa (CAA) para pessoas com Transtorno do Espectro Autista (TEA).
-
-O aplicativo simula a interface de um dispositivo móvel, oferecendo montagem de sentenças guiada por categorias gramaticais, pranchas visuais com pictogramas, gestão de frases salvas, cartões de orientação para momentos de desregulação sensorial/crise e botão de alerta para contatos de emergência.
+Projeto de TCC voltado ao desenvolvimento de um aplicativo acessível de **Comunicação Alternativa e Aumentativa (CAA)** para pessoas com Transtorno do Espectro Autista (TEA), construído com **Python**, **Flet** e integrado à **API do Google Gemini**.
 
 ---
 
-## 📂 Estrutura do Repositório
+## 🚀 Funcionalidades Principais
 
-* **`backend_tea_tcc.py`**:
-  * **Persistência de Dados (`DatabaseManager`):** Configura a base de dados relacional SQLite (`sistema_tea.db`) e popula dados iniciais (módulos, palavras, frases, imagens e usuário demo) automaticamente na primeira execução.
-  * **Modelo de Domínio:** Implementa as classes de negócio mapeadas no diagrama de classes UML: `Usuario`, `InformacaoCrise`, `ContatoEmergencia`, `Biblioteca`, `Modulo`, `Palavra`, `Imagem`, `Frase` e `Comunicacao`.
-  * **Síntese de Voz:** Integração de áudio via motor TTS (`pyttsx3`) com mecanismo de contingência para execução silenciosa.
-  * **Módulo de Inteligência Artificial (`sugerir_frase_com_ia`):** Integração opcional de baixo consumo de tokens conectada ao modelo `gemini-3.8-flash` para refinar e expandir construções curtas em sentenças prontas para comunicação.
+### 1. 🧩 Prancha de Comunicação Dinâmica
+- Seleção visual de palavras categorizadas (Pronomes, Verbos, Substantivos, Emoções, Social).
+- Visor de montagem de sentença em tempo real.
+- Suporte à inclusão de novas palavras personalizadas por módulo.
 
-* **`frontend_tea_tcc.py`**:
-  * Interface gráfica desenvolvida com a framework **Flet**, configurada em dimensões proporcionais a um smartphone (430x840).
-  * **Tela 0 (Autenticação):** Gestão de sessão com login e registro de novos usuários validados diretamente no SQLite.
-  * **Aba 1 (Prancha de Comunicação):** Montagem dinâmica de sentenças por chips categorizados por cores (Pronomes, Verbos, Emoções, etc.), além de botões para cadastro de novas palavras e otimização assistida por IA.
-  * **Aba 2 (Frases Prontas):** Histórico de frases salvas com suporte a favoritar mensagens para fixação no topo e reprodução rápida em áudio.
-  * **Aba 3 (Pictogramas Visuais):** Grade interativa com recursos visuais e semânticos para comunicação rápida por associação direta.
-  * **Aba 4 (Crise / SOS):** Painel do perfil, instruções personalizadas de manejo em episódios de hipersensibilidade sensorial e acionamento de emergência.
+### 2. ✨ Polimento Inteligente de Frases via IA (Google Gemini)
+- Otimização automática de termos soltos ou abreviados em sentenças coesas, educadas e em primeira pessoa do singular.
+- **Execução em Segundo Plano (Multi-threading):** O processamento da IA não trava a interface gráfica.
+- **Indicadores de Estado em Tempo Real:** Barra de carregamento horizontal (`ProgressBar`) e botão com animação de progresso (`ProgressRing`) informando claramente quando o modelo está trabalhando.
+- **Arquitetura de Alta Disponibilidade:** Fallback automático entre modelos de resposta rápida (`models/gemini-3.5-flash`, `models/gemini-3.1-flash-lite`, `models/gemini-3.8-flash`) com `thinking_budget` desativado para garantir latência mínima e evitar cortes de texto.
+- **Contingência Offline:** Preserva o texto original sem quebra da aplicação em caso de instabilidade de conexão.
 
-* **`preview_tcc.html`**:
-  * Protótipo estático das interfaces renderizado em HTML/CSS para documentação monográfica ou slides de apresentação para a banca examinadora.
+### 3. 🔊 Síntese de Voz (TTS - Text-to-Speech)
+- Leitura em áudio de alta clareza via biblioteca `pyttsx3`.
+- **Sincronização com a IA:** A voz reproduz fielmente a frase final refinada exibida no visor, salvando o histórico completo no banco de dados.
 
-* **`.gitignore`**:
-  * Filtra o controle de versões para ignorar binários temporários (`__pycache__/`, `.pyc`), arquivos de ambiente e a base de dados gerada localmente (`sistema_tea.db`).
+### 4. ⭐ Biblioteca e Frases Prontas
+- Armazenamento local de sentenças criadas pelo usuário.
+- Mecanismo de favoritos com priorização no topo da lista.
+- Reprodução direta e exclusão de sentenças.
+
+### 5. 🖼️ Pictogramas Visuais
+- Grade de comunicação rápida por cartões visuais e simbologia CAA.
+
+### 6. 🚨 Gestão de Crise e SOS
+- Registro de gatilhos, sinais comportamentais e instruções de acolhimento.
+- Acionamento imediato de contatos de emergência cadastrados.
+
+### 7. 🔐 Autenticação e Perfis
+- Sistema completo de login, cadastro e persistência de dados isolada por usuário.
 
 ---
 
-## ⚙️ Tecnologias Utilizadas
+## 🛠️ Tecnologias Utilizadas
 
-* **Linguagem:** Python (v3.10 ou superior)
-* **Interface Gráfica:** [Flet](https://flet.dev/)
-* **Banco de Dados:** SQLite3 (nativo do Python)
-* **Síntese Vocal (TTS):** [pyttsx3](https://pypi.org/project/pyttsx3/)
-* **API de LLM:** [google-genai](https://pypi.org/project/google-genai/) (Opcional - Gemini 3.8 Flash)
+- **Linguagem:** Python 3.10+
+- **Interface Gráfica:** [Flet](https://flet.dev/) (Flutter para Python)
+- **Inteligência Artificial:** [Google GenAI SDK](https://github.com/google-gemini/deprecations) (`google-genai`)
+- **Banco de Dados:** SQLite3
+- **Síntese de Voz:** `pyttsx3`
+- **Gestão de Ambiente:** `python-dotenv`
 
 ---
 
-## 🚀 Como Iniciar do Zero em um Novo Computador
+## 📋 Pré-requisitos e Instalação
 
 ### 1. Clonar o Repositório
-Abra o terminal (Prompt de Comando, PowerShell ou Terminal do VS Code) e execute:
 ```bash
-git clone https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git
-cd sistema-comunicacao-tea-caa
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+cd SEU_REPOSITORIO
 ```
 
-### 2. Criar o Ambiente Virtual (venv)
-O ambiente virtual isola as dependências do projeto para evitar conflitos de versão no sistema operacional:
-
-* **No Windows (PowerShell ou CMD):**
-  ```bash
+### 2. Criar e Ativar o Ambiente Virtual (`.venv`)
+- **Windows (PowerShell):**
+  ```powershell
   python -m venv venv
+  .\venv\Scripts\Activate.ps1
   ```
-* **No Linux / macOS:**
+- **Linux / macOS:**
   ```bash
   python3 -m venv venv
-  ```
-
-### 3. Ativar o Ambiente Virtual
-
-* **No Windows via PowerShell:**
-  ```powershell
-  .\venv\Scripts\activate
-  ```
-  > **Nota sobre erro de segurança no PowerShell:** Caso surja a mensagem de que *a execução de scripts foi desabilitada neste sistema*, execute o comando abaixo uma única vez para liberar scripts locais assinados e tente ativar novamente:
-  > ```powershell
-  > Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-  > .\venv\Scripts\activate
-  > ```
-
-* **No Windows via Prompt de Comando (CMD):**
-  ```cmd
-  .\venv\Scripts\activate.bat
-  ```
-
-* **No Linux / macOS:**
-  ```bash
   source venv/bin/activate
   ```
 
-> Quando ativado com sucesso, o terminal exibirá o prefixo `(venv)` no início da linha de comando.
-
-### 4. Instalar as Dependências
-Com o ambiente virtual ativado, instale as bibliotecas requeridas pelo projeto:
+### 3. Instalar as Dependências
+Com o ambiente virtual ativado:
 ```bash
-pip install flet pyttsx3 google-genai
+pip install flet pyttsx3 google-genai python-dotenv
 ```
 
-### 5. (Opcional) Configurar a Chave da API Gemini
-Para ativar o polimento assistido de frases com Inteligência Artificial, configure sua chave do [Google AI Studio](https://aistudio.google.com/):
+---
 
-* **Windows (PowerShell):**
-  ```powershell
-  $env:GEMINI_API_KEY="sua_chave_aqui"
-  ```
-* **Windows (CMD):**
-  ```cmd
-  set GEMINI_API_KEY=sua_chave_aqui
-  ```
-* **Linux / macOS:**
-  ```bash
-  export GEMINI_API_KEY="sua_chave_aqui"
-  ```
-> *Caso não configure a chave, a aplicação funcionará normalmente no modo padrão 100% offline.*
+## 🔑 Configuração da Chave de API (Gemini)
 
-### 6. Executar o Aplicativo
-Inicie a aplicação executando o ponto de entrada da interface:
+1. Obtenha uma chave de API gratuita no [Google AI Studio](https://aistudio.google.com/).
+2. Na raiz do projeto, crie um arquivo chamado `.env`:
+   ```env
+   GEMINI_API_KEY=sua_chave_aqui
+   ```
+3. Garanta que o arquivo `.env` esteja presente no seu `.gitignore` para proteção das suas credenciais.
+
+---
+
+## ▶️ Como Executar a Aplicação
+
+Certifique-se de que o ambiente virtual está ativo e execute:
 ```bash
 python frontend_tea_tcc.py
 ```
 
+### Credenciais para Teste Rápido (Demo):
+- **E-mail:** `lucas@email.com`
+- **Senha:** `123456`
+
 ---
 
-## 🔑 Credenciais para Demonstração (Banca de TCC)
+## 📂 Estrutura do Projeto
 
-Na primeira execução, o arquivo `sistema_tea.db` será gerado automaticamente. Para acelerar os testes durante a apresentação, utilize a conta pré-configurada:
-
-* **E-mail:** `lucas@email.com`
-* **Senha:** `123456`
+```text
+├── backend_tea_tcc.py      # Camada de dados SQLite, regras de negócio e integração com Gemini
+├── frontend_tea_tcc.py     # Interface gráfica em Flet, navegação, threads e layout acessível
+├── .env                    # Variáveis de ambiente (Chave de API do Gemini - não versionado)
+├── .gitignore              # Configuração de arquivos ignorados pelo Git
+└── README.md               # Documentação completa do projeto
+```
