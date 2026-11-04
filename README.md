@@ -47,4 +47,4 @@ O aplicativo simula a interface de um dispositivo móvel[cite: 2], oferecendo mo
 Abra o terminal (Prompt de Comando, PowerShell ou Terminal do VS Code) e execute:
 ```bash
 git clone [https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git](https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git)
-cd SEU-REPOSITORIO
+cd sistema-comunicacao-tea-caa
