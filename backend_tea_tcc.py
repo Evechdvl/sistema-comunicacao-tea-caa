@@ -1,6 +1,8 @@
 import sqlite3
 from datetime import date
 from typing import List, Optional
+from dotenv import load_dotenv
+load_dotenv()
 
 DB_NAME = "sistema_tea.db"
 
@@ -495,31 +497,78 @@ class Usuario:
 
 
 # =====================================================================
-# INTEGRAÇÃO COM A API DO GEMINI (Baixo Consumo de Tokens)
+# INTEGRAÇÃO COM A API DO GEMINI (Baixo Consumo e Alta Latência)
 # =====================================================================
 
 def sugerir_frase_com_ia(texto_bruto: str) -> str:
-    """Usa o modelo otimizado (gemini-3.8-flash) para reescrever o texto para CAA."""
+    """
+    Refina termos soltos em uma sentença estruturada de CAA para TEA.
+    Desativa thinking_budget para evitar cortes de texto e utiliza
+    fallback automático entre modelos estáveis da conta.
+    """
+    if not texto_bruto or not texto_bruto.strip():
+        return ""
+
     try:
-        from google import genai
         import os
-        
-        api_key = os.environ.get("GEMINI_API_KEY", "")
+        from google import genai
+        from google.genai import types
+
+        api_key = os.environ.get("GEMINI_API_KEY", "").strip()
         if not api_key:
             return texto_bruto
 
         client = genai.Client(api_key=api_key)
-        prompt = (
-            "Você é um assistente de Comunicação Alternativa (CAA) para pessoas com TEA. "
-            "Reescreva a frase abaixo em uma forma clara, educada e direta para ser comunicada. "
-            "Retorne apenas a frase final pronta:\n\n"
-            f"Frase: {texto_bruto}"
+
+        config = types.GenerateContentConfig(
+            system_instruction=(
+                "Você é um motor de CAA (Comunicação Alternativa e Aumentativa) para pessoas autistas. "
+                "Sua função é transformar palavras soltas em uma frase clara, educada, correta e em primeira pessoa do singular, "
+                "em Português do Brasil. "
+                "Regras estritas: Devolva APENAS a frase pronta final. Não use aspas, não dê explicações e não cumprimente."
+            ),
+            temperature=0.2,
+            max_output_tokens=300,
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
         )
 
-        response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=prompt,
-        )
-        return response.text.strip()
-    except Exception:
+        # Ordem de prioridade: 3.5-flash (confirmado), seguido por 3.1-lite e 3.8
+        modelos = [
+            "models/gemini-3.5-flash",
+            "models/gemini-3.1-flash-lite",
+            "models/gemini-3.8-flash",
+        ]
+
+        conteudo_prompt = f"Transforme em frase: {texto_bruto.strip()}"
+
+        for modelo in modelos:
+            try:
+                response = client.models.generate_content(
+                    model=modelo,
+                    contents=conteudo_prompt,
+                    config=config,
+                )
+
+                texto_saida = ""
+                if hasattr(response, "text") and response.text:
+                    texto_saida = response.text
+                elif response.candidates and response.candidates[0].content.parts:
+                    texto_saida = "".join(
+                        [p.text for p in response.candidates[0].content.parts if hasattr(p, "text") and p.text]
+                    )
+
+                texto_limpo = texto_saida.strip().replace('"', '').replace("'", "")
+
+                # Garante que não devolveu string vazia antes de entregar
+                if len(texto_limpo) >= 3:
+                    return texto_limpo
+
+            except Exception as erro_modelo:
+                print(f"[IA CAA Tentativa] {modelo} falhou: {erro_modelo}")
+                continue
+
+        return texto_bruto
+
+    except Exception as erro_geral:
+        print(f"[IA CAA Erro Geral]: {erro_geral}")
         return texto_bruto

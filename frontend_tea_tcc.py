@@ -1,4 +1,5 @@
 import flet as ft
+import threading
 from backend_tea_tcc import (
     DatabaseManager,
     Biblioteca,
@@ -192,7 +193,8 @@ def main(page: ft.Page):
     # =====================================================================
     # ABA 1: MONTAR FRASE & IA
     # =====================================================================
-    visor_frase = ft.Text("Toque nas palavras abaixo para montar sua frase...", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO)
+    visor_frase = ft.Text("Toque nas palavras abaixo para montar sua frase...", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.INDIGO)
+    barra_progresso_ia = ft.ProgressBar(visible=False, color=ft.Colors.INDIGO, bgcolor=ft.Colors.INDIGO_50, height=4)
     grid_palavras = ft.Row(wrap=True, spacing=8, run_spacing=8)
     input_nova_palavra = ft.TextField(label="Nova palavra", expand=True, height=48)
     input_cat_palavra = ft.Dropdown(
@@ -204,6 +206,19 @@ def main(page: ft.Page):
             criar_opcao("Emoção"),
             criar_opcao("Social"),
         ],
+    )
+
+    btn_polir_ia = OutlinedButtonCls(
+        content=ft.Row(
+            [
+                ft.Icon(ft.Icons.AUTO_AWESOME, size=18),
+                ft.Text("✨ Polir IA", weight=ft.FontWeight.BOLD),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=6,
+        ),
+        height=48,
+        tooltip="Melhora a frase com Inteligência Artificial (Baixo consumo)",
     )
 
     def atualizar_visor():
@@ -257,24 +272,73 @@ def main(page: ft.Page):
         dropdown_modulos.on_change = trocar_modulo
 
     def acao_montar_e_comunicar(e):
-        if not palavras_montagem:
+        texto_para_falar = (visor_frase.value or "").strip()
+
+        # Evita falar o texto padrão de placeholder
+        if not texto_para_falar or texto_para_falar == "Toque nas palavras abaixo para montar sua frase...":
             emitir_comunicacao_visual("Selecione ao menos uma palavra primeiro!", ft.Colors.ORANGE)
             return
-        nova_frase = Frase(modulo_id=modulo_selecionado.id, usuario_id=usuario_atual.id)
-        nova_frase.montar(palavras_montagem)
-        saida = comunicador.utilizar_texto(frase=nova_frase)
+
+        # 1. Salva no banco de dados a frase real (seja a polida pela IA ou a montagem manual)
+        nova_frase = Frase(
+            modulo_id=modulo_selecionado.id,
+            usuario_id=usuario_atual.id,
+            texto=texto_para_falar,
+        )
+        nova_frase.salvar()
+
+        # 2. Emite a voz com o texto atualizado do visor
+        saida = comunicador.comunicar(texto_para_falar)
         emitir_comunicacao_visual(f'Comunicação: "{saida}"')
         carregar_lista_frases()
 
     def acao_polir_com_ia(e):
         if not palavras_montagem:
-            emitir_comunicacao_visual("Monte uma frase primeiro para a IA polir!", ft.Colors.ORANGE)
+            emitir_comunicacao_visual("Monte uma frase com palavras antes de polir!", ft.Colors.ORANGE)
             return
+
         texto_bruto = " ".join([p.texto for p in palavras_montagem])
-        texto_otimizado = sugerir_frase_com_ia(texto_bruto)
-        visor_frase.value = texto_otimizado
-        emitir_comunicacao_visual("✨ Frase otimizada com IA (Gemini 3.8 Flash)!", ft.Colors.INDIGO)
+
+        # 1. Ativa imediatamente o visual de carregamento na tela
+        btn_polir_ia.disabled = True
+        btn_polir_ia.content = ft.Row(
+            [
+                ft.ProgressRing(width=16, height=16, stroke_width=2, color=ft.Colors.INDIGO),
+                ft.Text("Otimizando...", weight=ft.FontWeight.BOLD),
+            ],
+            alignment=ft.MainAxisAlignment.CENTER,
+            spacing=8,
+        )
+        barra_progresso_ia.visible = True
+        visor_frase.value = f'⏳ A IA está estruturando a frase: "{texto_bruto}"...'
         page.update()
+
+        # 2. Executa a requisição do Gemini em segundo plano (background thread)
+        def processar_ia_background():
+            try:
+                texto_otimizado = sugerir_frase_com_ia(texto_bruto)
+                visor_frase.value = texto_otimizado
+                emitir_comunicacao_visual("✨ Frase otimizada com sucesso!", ft.Colors.GREEN)
+            except Exception as err:
+                visor_frase.value = texto_bruto
+                emitir_comunicacao_visual(f"Não foi possível polir: {err}", ft.Colors.RED)
+            finally:
+                # 3. Restaura os botões quando a API responder
+                barra_progresso_ia.visible = False
+                btn_polir_ia.disabled = False
+                btn_polir_ia.content = ft.Row(
+                    [
+                        ft.Icon(ft.Icons.AUTO_AWESOME, size=18),
+                        ft.Text("✨ Polir IA", weight=ft.FontWeight.BOLD),
+                    ],
+                    alignment=ft.MainAxisAlignment.CENTER,
+                    spacing=6,
+                )
+                page.update()
+
+        threading.Thread(target=processar_ia_background, daemon=True).start()
+
+    btn_polir_ia.on_click = acao_polir_com_ia
 
     def acao_limpar_visor(e):
         palavras_montagem.clear()
@@ -294,7 +358,10 @@ def main(page: ft.Page):
             controls=[
                 ft.Text("Prancha de Comunicação (CAA)", size=20, weight=ft.FontWeight.BOLD),
                 ft.Container(
-                    content=visor_frase,
+                    content=ft.Column([
+                        visor_frase,
+                        barra_progresso_ia,
+                    ], spacing=10),
                     padding=16,
                     bgcolor="#e8eaf6",
                     border_radius=12,
@@ -302,7 +369,7 @@ def main(page: ft.Page):
                 ),
                 ft.Row([
                     FilledButtonCls("🔊 Comunicar", icon=ft.Icons.RECORD_VOICE_OVER, bgcolor=ft.Colors.GREEN, expand=True, height=48, on_click=acao_montar_e_comunicar),
-                    OutlinedButtonCls("✨ Polir IA", icon=ft.Icons.AUTO_AWESOME, height=48, on_click=acao_polir_com_ia, tooltip="Otimiza a frase via IA (Baixo consumo)"),
+                    btn_polir_ia,
                     OutlinedButtonCls("Limpar", icon=ft.Icons.BACKSPACE_OUTLINED, height=48, on_click=acao_limpar_visor),
                 ]),
                 ft.Divider(),
