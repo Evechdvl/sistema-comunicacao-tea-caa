@@ -54,7 +54,7 @@ Projeto de TCC voltado ao desenvolvimento de um aplicativo acessível de **Comun
 
 ### 1. Clonar o Repositório
 ```bash
-git clone [https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git](https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git)
+git clone https://github.com/Evechdvl/sistema-comunicacao-tea-caa.git
 cd sistema-comunicacao-tea-caa
 ```
 
