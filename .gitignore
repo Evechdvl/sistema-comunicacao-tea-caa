@@ -1,6 +1,5 @@
 __pycache__/
 *.pyc
-sistema_tea.db
 *.sqlite3
 *.db
 .env
