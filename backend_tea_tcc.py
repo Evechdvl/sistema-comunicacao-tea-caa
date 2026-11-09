@@ -219,30 +219,93 @@ class Palavra:
 
 
 class Imagem:
-    def __init__(self, id_imagem: int, nome: str, caminho: str, descricao: str):
+    def __init__(self, id_imagem: int = 0, caminho: str = "", nome: str = "", descricao: str = ""):
         self._id: int = id_imagem
-        self._nome: str = nome
         self._caminho: str = caminho
+        self._nome: str = nome
         self._descricao: str = descricao
 
     @property
-    def id(self) -> int: return self._id
-    @property
-    def nome(self) -> str: return self._nome
-    @property
-    def caminho(self) -> str: return self._caminho
-    @property
-    def descricao(self) -> str: return self._descricao
+    def id(self) -> int:
+        return self._id
 
-    def visualizar(self) -> str:
-        return f"{self._caminho} {self._nome}: {self._descricao}"
+    @property
+    def caminho(self) -> str:
+        return self._caminho
+
+    @property
+    def nome(self) -> str:
+        return self._nome
+
+    @property
+    def descricao(self) -> str:
+        return self._descricao
 
     @staticmethod
-    def listar_todas() -> List["Imagem"]:
+    def _garantir_tabela(conn):
+        """Cria a tabela se não existir e popula apenas se estiver vazia."""
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS imagens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                caminho TEXT NOT NULL,
+                nome TEXT NOT NULL,
+                descricao TEXT
+            )
+        """)
+
+        # Verifica quantos registros já existem na tabela
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM imagens")
+        total = cursor.fetchone()[0]
+
+        # Só insere os padrões se a tabela estiver completamente vazia (primeira execução)
+        if total == 0:
+            cards_iniciais = [
+                ("💧", "Água", "Quero beber água"),
+                ("🍎", "Comer", "Estou com fome, quero comer"),
+                ("🚽", "Banheiro", "Preciso usar o banheiro"),
+                ("😴", "Dormir", "Estou com sono, quero descansar"),
+                ("😀", "Feliz", "Estou me sentindo bem e contente"),
+                ("😢", "Triste", "Estou me sentindo chateado ou triste"),
+                ("🛑", "Parar", "Não quero isso, por favor pare"),
+                ("💊", "Dor", "Estou sentindo dor ou incômodo"),
+                ("🧸", "Brincar", "Quero meus brinquedos ou jogos"),
+                ("👋", "Ajuda", "Preciso de ajuda com alguma coisa"),
+            ]
+            conn.executemany("""
+                INSERT INTO imagens (caminho, nome, descricao)
+                VALUES (?, ?, ?)
+            """, cards_iniciais)
+            conn.commit()
+
+    def adicionar(self) -> None:
         conn = DatabaseManager.get_connection()
-        rows = conn.execute("SELECT id, nome, caminho, descricao FROM imagem").fetchall()
+        self._garantir_tabela(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO imagens (caminho, nome, descricao) VALUES (?, ?, ?)",
+            (self._caminho, self._nome, self._descricao)
+        )
+        self._id = cursor.lastrowid
+        conn.commit()
         conn.close()
-        return [Imagem(r[0], r[1], r[2], r[3]) for r in rows]
+
+    def remover(self) -> None:
+        conn = DatabaseManager.get_connection()
+        self._garantir_tabela(conn)
+        conn.execute("DELETE FROM imagens WHERE id = ?", (self._id,))
+        conn.commit()
+        conn.close()
+
+    @classmethod
+    def listar_todas(cls) -> list["Imagem"]:
+        conn = DatabaseManager.get_connection()
+        cls._garantir_tabela(conn)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, caminho, nome, descricao FROM imagens")
+        linhas = cursor.fetchall()
+        conn.close()
+        return [cls(id_imagem=linha[0], caminho=linha[1], nome=linha[2], descricao=linha[3]) for linha in linhas]
 
 
 class Frase:
@@ -373,7 +436,14 @@ class Comunicacao:
 
 
 class InformacaoCrise:
-    def __init__(self, id_info: int, descricao: str, sinais: str, orientacoes: str, usuario_id: int = 1):
+    def __init__(
+        self,
+        id_info: int = 0,
+        descricao: str = "",
+        sinais: str = "",
+        orientacoes: str = "",
+        usuario_id: int = 1,
+    ):
         self._id: int = id_info
         self._descricao: str = descricao
         self._sinais: str = sinais
@@ -381,20 +451,50 @@ class InformacaoCrise:
         self._usuario_id: int = usuario_id
 
     @property
+    def id(self) -> int: return self._id
+    @property
     def descricao(self) -> str: return self._descricao
     @property
     def sinais(self) -> str: return self._sinais
     @property
     def orientacoes(self) -> str: return self._orientacoes
+    @property
+    def usuario_id(self) -> int: return self._usuario_id
 
-    def cadastrar(self) -> None:
+    @descricao.setter
+    def descricao(self, v: str): self._descricao = v
+    @sinais.setter
+    def sinais(self, v: str): self._sinais = v
+    @orientacoes.setter
+    def orientacoes(self, v: str): self._orientacoes = v
+
+    def salvar(self) -> None:
         conn = DatabaseManager.get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO informacao_crise (usuario_id, descricao, sinais, orientacoes) VALUES (?, ?, ?, ?)",
-            (self._usuario_id, self._descricao, self._sinais, self._orientacoes)
-        )
-        self._id = cursor.lastrowid
+        if self._id and self._id > 0:
+            cursor.execute(
+                """
+                UPDATE informacao_crise 
+                SET descricao = ?, sinais = ?, orientacoes = ?, usuario_id = ? 
+                WHERE id = ?
+                """,
+                (self._descricao, self._sinais, self._orientacoes, self._usuario_id, self._id),
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO informacao_crise (descricao, sinais, orientacoes, usuario_id) 
+                VALUES (?, ?, ?, ?)
+                """,
+                (self._descricao, self._sinais, self._orientacoes, self._usuario_id),
+            )
+            self._id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+    def remover(self) -> None:
+        conn = DatabaseManager.get_connection()
+        conn.execute("DELETE FROM informacao_crise WHERE id = ?", (self._id,))
         conn.commit()
         conn.close()
 
@@ -428,7 +528,7 @@ class ContatoEmergencia:
     def acionar(self) -> str:
         return f"🚨 Acionando emergência: {self._nome} ({self._descricao}) no número {self._telefone}!"
 
-
+    
 class Usuario:
     def __init__(self, id_usuario: int, nome: str, email: str, senha: str, data_cadastro: str = ""):
         self._id: int = id_usuario
@@ -477,14 +577,29 @@ class Usuario:
     def cadastrar_informacoes_crise(self, info: InformacaoCrise) -> None:
         info.cadastrar()
 
-    def listar_informacoes_crise(self) -> List[InformacaoCrise]:
+    def listar_informacoes_crise(self) -> list[InformacaoCrise]:
         conn = DatabaseManager.get_connection()
-        rows = conn.execute(
-            "SELECT id, descricao, sinais, orientacoes, usuario_id FROM informacao_crise WHERE usuario_id = ?",
-            (self._id,)
-        ).fetchall()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT id, descricao, sinais, orientacoes, usuario_id 
+            FROM informacao_crise 
+            WHERE usuario_id = ?
+            """,
+            (self._id,),
+        )
+        linhas = cursor.fetchall()
         conn.close()
-        return [InformacaoCrise(r[0], r[1], r[2], r[3], r[4]) for r in rows]
+        return [
+            InformacaoCrise(
+                id_info=linha[0],
+                descricao=linha[1],
+                sinais=linha[2],
+                orientacoes=linha[3],
+                usuario_id=linha[4],
+            )
+            for linha in linhas
+        ]
 
     def listar_contatos_emergencia(self) -> List[ContatoEmergencia]:
         conn = DatabaseManager.get_connection()
